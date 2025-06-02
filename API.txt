@@ -1,0 +1,328 @@
+{
+  "swagger": "2.0",
+  "basePath": "/",
+  "paths": {
+    "/keywords/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Keyword"
+              }
+            }
+          }
+        },
+        "summary": "Получить список всех ключевых слов",
+        "operationId": "get_keywords",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "keywords"
+        ]
+      },
+      "post": {
+        "responses": {
+          "201": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Keyword"
+            }
+          }
+        },
+        "summary": "Добавить новое ключевое слово",
+        "operationId": "create_keyword",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Keyword"
+            }
+          },
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "keywords"
+        ]
+      }
+    },
+    "/keywords/{keyword_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "description": "ID ключевого слова",
+          "name": "keyword_id",
+          "required": true,
+          "type": "integer"
+        }
+      ],
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "Ключевое слово удалено"
+          }
+        },
+        "summary": "Удалить ключевое слово",
+        "operationId": "delete_keyword",
+        "tags": [
+          "keywords"
+        ]
+      }
+    },
+    "/news/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/News"
+              }
+            }
+          }
+        },
+        "summary": "Получить список новостей с возможностью фильтрации",
+        "operationId": "get_news",
+        "parameters": [
+          {
+            "description": "Фильтр по ключевому слову",
+            "name": "keyword",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "description": "Фильтр по источнику",
+            "name": "source",
+            "type": "string",
+            "in": "query"
+          },
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "news"
+        ]
+      }
+    },
+    "/sources/": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Source"
+              }
+            }
+          }
+        },
+        "summary": "Получить список всех источников",
+        "operationId": "get_sources",
+        "parameters": [
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "sources"
+        ]
+      },
+      "post": {
+        "responses": {
+          "201": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/Source"
+            }
+          }
+        },
+        "summary": "Добавить новый источник",
+        "operationId": "create_source",
+        "parameters": [
+          {
+            "name": "payload",
+            "required": true,
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/Source"
+            }
+          },
+          {
+            "name": "X-Fields",
+            "in": "header",
+            "type": "string",
+            "format": "mask",
+            "description": "An optional fields mask"
+          }
+        ],
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/sources/{source_id}": {
+      "parameters": [
+        {
+          "in": "path",
+          "description": "ID источника",
+          "name": "source_id",
+          "required": true,
+          "type": "integer"
+        }
+      ],
+      "delete": {
+        "responses": {
+          "204": {
+            "description": "Источник удален"
+          }
+        },
+        "summary": "Удалить источник",
+        "operationId": "delete_source",
+        "tags": [
+          "sources"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "RSS Monitor API",
+    "version": "1.0",
+    "description": "API для мониторинга RSS-лент и управления ключевыми словами"
+  },
+  "produces": [
+    "application/json"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "tags": [
+    {
+      "name": "news",
+      "description": "Операции с новостями"
+    },
+    {
+      "name": "sources",
+      "description": "Операции с источниками"
+    },
+    {
+      "name": "keywords",
+      "description": "Операции с ключевыми словами"
+    }
+  ],
+  "definitions": {
+    "News": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "ID новости"
+        },
+        "title": {
+          "type": "string",
+          "description": "Заголовок новости"
+        },
+        "content": {
+          "type": "string",
+          "description": "Содержание новости"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL новости"
+        },
+        "published_date": {
+          "type": "string",
+          "description": "Дата публикации"
+        },
+        "found_date": {
+          "type": "string",
+          "description": "Дата обнаружения"
+        },
+        "source_name": {
+          "type": "string",
+          "description": "Название источника"
+        },
+        "keywords": {
+          "type": "array",
+          "description": "Ключевые слова",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "type": "object"
+    },
+    "Source": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "ID источника"
+        },
+        "name": {
+          "type": "string",
+          "description": "Название источника"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL RSS-ленты"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Статус активности"
+        }
+      },
+      "type": "object"
+    },
+    "Keyword": {
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "ID ключевого слова"
+        },
+        "word": {
+          "type": "string",
+          "description": "Ключевое слово"
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Статус активности"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "responses": {
+    "ParseError": {
+      "description": "When a mask can't be parsed"
+    },
+    "MaskError": {
+      "description": "When any error occurs on mask"
+    }
+  }
+}

@@ -6,8 +6,39 @@ import re
 from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 import os
+from flask_restx import Api, Resource, fields
 
 app = Flask(__name__)
+api = Api(app, version='1.0', title='RSS Monitor API',
+    description='API для мониторинга RSS-лент и управления ключевыми словами')
+
+news_model = api.model('News', {
+    'id': fields.Integer(description='ID новости'),
+    'title': fields.String(description='Заголовок новости'),
+    'content': fields.String(description='Содержание новости'),
+    'url': fields.String(description='URL новости'),
+    'published_date': fields.String(description='Дата публикации'),
+    'found_date': fields.String(description='Дата обнаружения'),
+    'source_name': fields.String(description='Название источника'),
+    'keywords': fields.List(fields.String, description='Ключевые слова')
+})
+
+source_model = api.model('Source', {
+    'id': fields.Integer(description='ID источника'),
+    'name': fields.String(description='Название источника'),
+    'url': fields.String(description='URL RSS-ленты'),
+    'active': fields.Boolean(description='Статус активности')
+})
+
+keyword_model = api.model('Keyword', {
+    'id': fields.Integer(description='ID ключевого слова'),
+    'word': fields.String(description='Ключевое слово'),
+    'active': fields.Boolean(description='Статус активности')
+})
+
+news_ns = api.namespace('news', description='Операции с новостями')
+sources_ns = api.namespace('sources', description='Операции с источниками')
+keywords_ns = api.namespace('keywords', description='Операции с ключевыми словами')
 
 DB_PATH = "rss_monitor.db"
 
@@ -268,152 +299,183 @@ def toggle_keyword(keyword_id):
     
     return redirect(url_for('keywords'))
 
-# API эндпоинты
-
-@app.route('/api/news')
-def api_news():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    keyword = request.args.get('keyword')
-    source = request.args.get('source')
-    
-    query = '''
-    SELECT n.id, n.title, n.content, n.url, n.published_date, n.found_date, s.name as source_name
-    FROM news n
-    JOIN sources s ON n.source_id = s.id
-    '''
-    
-    params = []
-    conditions = []
-    
-    if keyword:
-        query += '''
-        JOIN news_keywords nk ON n.id = nk.news_id
-        JOIN keywords k ON nk.keyword_id = k.id
+# API эндпоинты 
+@news_ns.route('/')
+class NewsList(Resource):
+    @news_ns.doc('get_news',
+        params={
+            'keyword': 'Фильтр по ключевому слову',
+            'source': 'Фильтр по источнику'
+        })
+    @news_ns.marshal_list_with(news_model)
+    def get(self):
+        """Получить список новостей с возможностью фильтрации"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        keyword = request.args.get('keyword')
+        source = request.args.get('source')
+        
+        query = '''
+        SELECT n.id, n.title, n.content, n.url, n.published_date, n.found_date, s.name as source_name
+        FROM news n
+        JOIN sources s ON n.source_id = s.id
         '''
-        conditions.append("k.word LIKE ?")
-        params.append(f"%{keyword}%")
-    
-    if source:
-        conditions.append("s.name LIKE ?")
-        params.append(f"%{source}%")
-    
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    
-    query += " ORDER BY n.found_date DESC LIMIT 100"
-    
-    cursor.execute(query, params)
-    news = [dict(row) for row in cursor.fetchall()]
+        
+        params = []
+        conditions = []
+        
+        if keyword:
+            query += '''
+            JOIN news_keywords nk ON n.id = nk.news_id
+            JOIN keywords k ON nk.keyword_id = k.id
+            '''
+            conditions.append("k.word LIKE ?")
+            params.append(f"%{keyword}%")
+        
+        if source:
+            conditions.append("s.name LIKE ?")
+            params.append(f"%{source}%")
+        
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        
+        query += " ORDER BY n.found_date DESC LIMIT 100"
+        
+        cursor.execute(query, params)
+        news = [dict(row) for row in cursor.fetchall()]
 
-    for item in news:
-        cursor.execute('''
-        SELECT k.word
-        FROM keywords k
-        JOIN news_keywords nk ON k.id = nk.keyword_id
-        WHERE nk.news_id = ?
-        ''', (item['id'],))
-        keywords = [row[0] for row in cursor.fetchall()]
-        item['keywords'] = keywords
-    
-    conn.close()
-    
-    return jsonify(news)
-
-@app.route('/api/sources', methods=['GET'])
-def api_sources():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM sources ORDER BY name")
-    sources = [dict(row) for row in cursor.fetchall()]
-    
-    conn.close()
-    
-    return jsonify(sources)
-
-@app.route('/api/sources', methods=['POST'])
-def api_add_source():
-    data = request.json
-    name = data.get('name')
-    url = data.get('url')
-    
-    if not name or not url:
-        return jsonify({"error": "Требуются поля name и url"}), 400
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("INSERT INTO sources (name, url) VALUES (?, ?)", (name, url))
-        conn.commit()
-        source_id = cursor.lastrowid
+        for item in news:
+            cursor.execute('''
+            SELECT k.word
+            FROM keywords k
+            JOIN news_keywords nk ON k.id = nk.keyword_id
+            WHERE nk.news_id = ?
+            ''', (item['id'],))
+            keywords = [row[0] for row in cursor.fetchall()]
+            item['keywords'] = keywords
+        
         conn.close()
         
-        return jsonify({"id": source_id, "name": name, "url": url, "active": 1}), 201
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({"error": "Источник с таким URL уже существует"}), 400
+        return news
 
-@app.route('/api/sources/<int:source_id>', methods=['DELETE'])
-def api_delete_source(source_id):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("DELETE FROM sources WHERE id = ?", (source_id,))
-    conn.commit()
-    conn.close()
-    
-    return "", 204
-
-@app.route('/api/keywords', methods=['GET'])
-def api_keywords():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM keywords ORDER BY word")
-    keywords = [dict(row) for row in cursor.fetchall()]
-    
-    conn.close()
-    
-    return jsonify(keywords)
-
-@app.route('/api/keywords', methods=['POST'])
-def api_add_keyword():
-    data = request.json
-    word = data.get('word')
-    
-    if not word:
-        return jsonify({"error": "Требуется поле word"}), 400
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    try:
-        cursor.execute("INSERT INTO keywords (word) VALUES (?)", (word,))
-        conn.commit()
-        keyword_id = cursor.lastrowid
+@sources_ns.route('/')
+class SourceList(Resource):
+    @sources_ns.doc('get_sources')
+    @sources_ns.marshal_list_with(source_model)
+    def get(self):
+        """Получить список всех источников"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM sources ORDER BY name")
+        sources = [dict(row) for row in cursor.fetchall()]
+        
         conn.close()
         
-        return jsonify({"id": keyword_id, "word": word, "active": 1}), 201
-    except sqlite3.IntegrityError:
-        conn.close()
-        return jsonify({"error": "Такое ключевое слово уже существует"}), 400
+        return sources
 
-@app.route('/api/keywords/<int:keyword_id>', methods=['DELETE'])
-def api_delete_keyword(keyword_id):
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    cursor.execute("DELETE FROM keywords WHERE id = ?", (keyword_id,))
-    conn.commit()
-    conn.close()
-    
-    return "", 204
+    @sources_ns.doc('create_source')
+    @sources_ns.expect(source_model)
+    @sources_ns.marshal_with(source_model, code=201)
+    def post(self):
+        """Добавить новый источник"""
+        data = request.json
+        name = data.get('name')
+        url = data.get('url')
+        
+        if not name or not url:
+            api.abort(400, "Требуются поля name и url")
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("INSERT INTO sources (name, url) VALUES (?, ?)", (name, url))
+            conn.commit()
+            source_id = cursor.lastrowid
+            conn.close()
+            
+            return {"id": source_id, "name": name, "url": url, "active": 1}, 201
+        except sqlite3.IntegrityError:
+            conn.close()
+            api.abort(400, "Источник с таким URL уже существует")
+
+@sources_ns.route('/<int:source_id>')
+@sources_ns.param('source_id', 'ID источника')
+class Source(Resource):
+    @sources_ns.doc('delete_source')
+    @sources_ns.response(204, 'Источник удален')
+    def delete(self, source_id):
+        """Удалить источник"""
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM sources WHERE id = ?", (source_id,))
+        conn.commit()
+        conn.close()
+        
+        return '', 204
+
+@keywords_ns.route('/')
+class KeywordList(Resource):
+    @keywords_ns.doc('get_keywords')
+    @keywords_ns.marshal_list_with(keyword_model)
+    def get(self):
+        """Получить список всех ключевых слов"""
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM keywords ORDER BY word")
+        keywords = [dict(row) for row in cursor.fetchall()]
+        
+        conn.close()
+        
+        return keywords
+
+    @keywords_ns.doc('create_keyword')
+    @keywords_ns.expect(keyword_model)
+    @keywords_ns.marshal_with(keyword_model, code=201)
+    def post(self):
+        """Добавить новое ключевое слово"""
+        data = request.json
+        word = data.get('word')
+        
+        if not word:
+            api.abort(400, "Требуется поле word")
+        
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute("INSERT INTO keywords (word) VALUES (?)", (word,))
+            conn.commit()
+            keyword_id = cursor.lastrowid
+            conn.close()
+            
+            return {"id": keyword_id, "word": word, "active": 1}, 201
+        except sqlite3.IntegrityError:
+            conn.close()
+            api.abort(400, "Такое ключевое слово уже существует")
+
+@keywords_ns.route('/<int:keyword_id>')
+@keywords_ns.param('keyword_id', 'ID ключевого слова')
+class Keyword(Resource):
+    @keywords_ns.doc('delete_keyword')
+    @keywords_ns.response(204, 'Ключевое слово удалено')
+    def delete(self, keyword_id):
+        """Удалить ключевое слово"""
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute("DELETE FROM keywords WHERE id = ?", (keyword_id,))
+        conn.commit()
+        conn.close()
+        
+        return '', 204
 
 def create_templates():
     if not os.path.exists('templates'):
