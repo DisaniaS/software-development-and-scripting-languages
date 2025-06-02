@@ -1,0 +1,80 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ключевые слова - RSS Монитор</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .nav { display: flex; gap: 20px; }
+        .nav a { text-decoration: none; color: #0066cc; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        .btn { padding: 8px 16px; background-color: #0066cc; color: white; border: none; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }
+        .action-btn { padding: 5px 10px; margin-right: 5px; background-color: #f44336; color: white; border: none; cursor: pointer; }
+        .toggle-btn { padding: 5px 10px; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .toggle-btn.inactive { background-color: #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Управление ключевыми словами</h1>
+            <div class="nav">
+                <a href="/">Новости</a>
+                <a href="/sources">Источники</a>
+                <a href="/keywords">Ключевые слова</a>
+            </div>
+        </div>
+        
+        <h2>Добавить новое ключевое слово</h2>
+        <form action="/keywords/add" method="post">
+            <div class="form-group">
+                <label for="word">Ключевое слово:</label>
+                <input type="text" id="word" name="word" required>
+            </div>
+            <button type="submit" class="btn">Добавить</button>
+        </form>
+        
+        <h2>Существующие ключевые слова</h2>
+        {% if keywords %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Слово</th>
+                        <th>Статус</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for keyword in keywords %}
+                        <tr>
+                            <td>{{ keyword.word }}</td>
+                            <td>{{ 'Активно' if keyword.active else 'Неактивно' }}</td>
+                            <td>
+                                <form action="/keywords/delete/{{ keyword.id }}" method="post" style="display: inline;">
+                                    <button type="submit" class="action-btn">Удалить</button>
+                                </form>
+                                <form action="/keywords/toggle/{{ keyword.id }}" method="post" style="display: inline;">
+                                    <button type="submit" class="toggle-btn {{ 'inactive' if keyword.active else '' }}">
+                                        {{ 'Деактивировать' if keyword.active else 'Активировать' }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p>Ключевых слов пока нет.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
+        

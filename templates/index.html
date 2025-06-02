@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RSS Монитор</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .nav { display: flex; gap: 20px; }
+        .nav a { text-decoration: none; color: #0066cc; }
+        .news-item { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
+        .news-title { font-size: 18px; margin-top: 0; }
+        .news-meta { color: #666; font-size: 14px; margin-bottom: 10px; }
+        .news-content { margin-bottom: 10px; }
+        .news-content img { width: 100%; height: auto; object-fit: cover; }
+        .news-link { color: #0066cc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>RSS Монитор</h1>
+            <div class="nav">
+                <a href="/">Новости</a>
+                <a href="/sources">Источники</a>
+                <a href="/keywords">Ключевые слова</a>
+            </div>
+        </div>
+        
+        <h2>Последние новости</h2>
+        
+        {% if news %}
+            {% for item in news %}
+                <div class="news-item">
+                    <h3 class="news-title">{{ item.title }}</h3>
+                    <div class="news-meta">
+                        Источник: {{ item.source_name }} | 
+                        Опубликовано: {{ item.published_date }} | 
+                        Найдено: {{ item.found_date }} |
+                        Ключевые слова: {{ item.keywords }}
+                    </div>
+                    <div class="news-content">{{ item.content | safe }}</div>
+                    <a href="{{ item.url }}" target="_blank" class="news-link">Читать источник</a>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>Новостей пока нет. Добавьте источники и ключевые слова.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
+        
